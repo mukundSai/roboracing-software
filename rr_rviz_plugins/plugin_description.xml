@@ -1,0 +1,10 @@
+<library path="lib/librr_rviz_plugins">
+
+    <class name="rr_rviz_plugins/CompassPanel"
+           type="rr_rviz_plugins::CompassPanel"
+           base_class_type="rviz::Panel">
+        <description>
+            A panel widget showing robot heading on a compass.
+        </description>
+    </class>
+</library>
