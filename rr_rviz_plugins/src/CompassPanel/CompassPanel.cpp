@@ -8,7 +8,7 @@
 namespace rr_rviz_plugins {
 
   CompassPanel::CompassPanel(QWidget *parent)
-      : Panel(parent)
+      : rviz::Panel(parent)
   {
     compass_widget = new CompassWidget;
 
@@ -16,6 +16,8 @@ namespace rr_rviz_plugins {
     layout->addWidget(compass_widget);
 
     setLayout(layout);
+
+    subscribeToTopic("/imu/mag");
   }
 
   void CompassPanel::load(const rviz::Config &config)
@@ -39,3 +41,7 @@ namespace rr_rviz_plugins {
   }
 
 }
+
+#include <pluginlib/class_list_macros.h>
+PLUGINLIB_EXPORT_CLASS(rr_rviz_plugins::CompassPanel,rviz::Panel )
+
