@@ -29,8 +29,11 @@ add_definitions(${Qt5Widgets_DEFINITIONS})
 
 set(
         SOURCE_FILES
+        src/CompassPanel/CompassPanel.h
         src/CompassPanel/CompassPanel.cpp
-        src/CompassPanel/CompassWidget.cpp)
+        src/CompassPanel/CompassWidget.h
+        src/CompassPanel/CompassWidget.cpp
+)
 
 add_library(${PROJECT_NAME} ${SOURCE_FILES})
 
