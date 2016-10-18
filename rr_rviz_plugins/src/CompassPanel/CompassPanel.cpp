@@ -30,7 +30,12 @@ namespace rr_rviz_plugins {
 
   void CompassPanel::magneticFieldCallback(const sensor_msgs::MagneticFieldConstPtr msg)
   {
-    compass_widget->setHeading(static_cast<float>(msg->magnetic_field.z));
+    auto x = msg->magnetic_field.x;
+    auto y = msg->magnetic_field.y;
+
+    auto heading = (M_PI / 2.0) - atan2(y, x);
+
+    compass_widget->setHeading(heading);
   }
 
   void CompassPanel::subscribeToTopic(const std::string &topic)
