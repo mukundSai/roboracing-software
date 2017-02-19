@@ -56,7 +56,7 @@ void buildData(Mat &frame, Mat &data, Mat &dbg_img) {
 } 
 
 void classifyImage(const sensor_msgs::ImageConstPtr& msg) {
-    Ptr<SVM> svm = SVM::load("svm.xml");
+    Ptr<SVM> svm = SVM::load("svm_trained.xml");
     cv_bridge::CvImagePtr cv_ptr;
     Mat frame;
     Mat labels;
