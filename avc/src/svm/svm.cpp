@@ -15,6 +15,7 @@ using uchar = unsigned char;
 //img size: 480 x 640 for camera
 
 Publisher img_pub;
+Ptr<SVM> svm;
 
 void renderClassification(const Mat &labels, Mat &render) {
     render = labels.reshape(1, 20).clone();
@@ -43,7 +44,7 @@ void buildData(Mat &frame, Mat &data, Mat &dbg_img) {
     Size size(1000, 1000);
     resize(frame, frame, size, 0, 0, INTER_AREA);
     dbg_img = frame.clone();
-    cvtColor(dbg, dbg, COLOR_BGR2HSV);
+    cvtColor(dbg_img, dbg_img, COLOR_BGR2HSV);
     float *dataRow = data.ptr<float>(0);
     for (int r = 0; r < size.height; r+= 50) {
         for (int c = 0; c < size.height; c+= 50) {
@@ -56,7 +57,6 @@ void buildData(Mat &frame, Mat &data, Mat &dbg_img) {
 } 
 
 void classifyImage(const sensor_msgs::ImageConstPtr& msg) {
-    Ptr<SVM> svm = SVM::load("svm_trained.xml");
     cv_bridge::CvImagePtr cv_ptr;
     Mat frame;
     Mat labels;
@@ -65,7 +65,7 @@ void classifyImage(const sensor_msgs::ImageConstPtr& msg) {
         cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");
     } catch (cv_bridge::Exception& e) {
         ROS_ERROR("CV-Bridge error %s", e.what());
-        return
+        return;
     }
     frame = cv_ptr->image;
     Mat data(400, 2, CV_32F);
@@ -75,7 +75,7 @@ void classifyImage(const sensor_msgs::ImageConstPtr& msg) {
     renderClassification(labels, output);
     sensor_msgs::Image outmsg;
     cv_ptr->image = output;
-    cv_ptr->encoding = "bgr8";
+    cv_ptr->encoding = "mono8";
     cv_ptr->toImageMsg(outmsg);
     img_pub.publish(outmsg);
 }
@@ -83,6 +83,7 @@ void classifyImage(const sensor_msgs::ImageConstPtr& msg) {
 int main(int argc, char** argv) {
 
     init(argc, argv, "color_svm_avc");
+    svm = SVM::load("svm_trained.xml");
 
     NodeHandle nh;
 
