@@ -19,8 +19,19 @@ Ptr<SVM> svm;
 
 void renderClassification(const Mat &labels, Mat &render) {
     render = labels.reshape(1, 20).clone();
-    render *= 255;
+    //render *= 255;
+    render.convertTo(render, CV_8UC1, 255);
     resize(render, render, Size(1000, 1000));
+}
+
+void renderData(const Mat &data, Mat& output) {
+    Mat intermediate = data.reshape(2, 20).clone();
+    Mat values = Mat::ones(20, 20, CV_32FC1) * 160; 
+    Mat hs[2];
+    split(intermediate, hs);
+    merge(vector<Mat> {hs[0], hs[1], values}, output);
+    output.convertTo(output, CV_8UC3);
+    cvtColor(output, output, COLOR_HSV2BGR);
 }
 
 vector<float> avgPixel(const Mat &img, const int &r, const int &c) {
@@ -54,6 +65,18 @@ void buildData(Mat &frame, Mat &data, Mat &dbg_img) {
             dataRow += data.step1();
         }
     } 
+    for (int r = 0; r < size.height; r+= 50) {
+        for (int c = 0; c < size.height; c+= 50) {
+            vector<float> avg = avgPixel(frame, r, c);
+            for (int i = r; i < r + 50; i++) {
+                for (int j = c; j < c + 50; j++) {
+                    dbg_img.at<Vec3b>(i, j).val[0] = avg[0];
+                    dbg_img.at<Vec3b>(i, j).val[1] = avg[1];
+                    dbg_img.at<Vec3b>(i, j).val[2] = avg[2];
+                }
+            }
+        }
+    }
 } 
 
 void classifyImage(const sensor_msgs::ImageConstPtr& msg) {
@@ -71,6 +94,7 @@ void classifyImage(const sensor_msgs::ImageConstPtr& msg) {
     Mat data(400, 2, CV_32F);
     Mat dbg_img;
     buildData(frame, data, dbg_img);
+    //renderData(data, output);
     svm->predict(data, labels);
     renderClassification(labels, output);
     sensor_msgs::Image outmsg;
@@ -78,16 +102,17 @@ void classifyImage(const sensor_msgs::ImageConstPtr& msg) {
     cv_ptr->encoding = "mono8";
     cv_ptr->toImageMsg(outmsg);
     img_pub.publish(outmsg);
+
 }
 
 int main(int argc, char** argv) {
 
-    init(argc, argv, "color_svm_avc");
+    init(argc, argv, "svm");
     svm = SVM::load("svm_trained.xml");
 
     NodeHandle nh;
 
-    img_pub = nh.advertise<sensor_msgs::Image>("/colors_img", 1);
+    img_pub = nh.advertise<sensor_msgs::Image>("/image_threshed", 1);
     auto img_sub = nh.subscribe("/camera/image_rect", 1, classifyImage);
 
     spin();
