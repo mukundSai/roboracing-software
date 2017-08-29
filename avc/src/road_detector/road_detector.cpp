@@ -120,7 +120,7 @@ cv::Mat bootstrapLoadFromStorage(cv::Mat image_hue){
 
 	//#TODO: FILE LOADING HISTOGRAM
 	// load file
-	// @note http://stackoverflow.com/questions/10277439/opencv-load-save-histogram-data
+	// per http://stackoverflow.com/questions/10277439/opencv-load-save-histogram-data
 	cv::FileStorage fs("road_histogram_hue_normalized.yml", cv::FileStorage::READ);
 	if (!fs.isOpened()) {ROS_FATAL_STREAM("unable to open file storage!");}
 	fs["road_histogram_hue_normalized"] >> histogram_hue;
@@ -168,7 +168,7 @@ void train(cv::Mat &hist_hue_road,cv::Mat &hist_hue_nonRoad, cv::Mat mask){
 cv::Mat predict(cv::Mat img_hue, cv::Mat &hist_hue_road, cv::Mat &hist_hue_nonRoad){
 	float threshold = 1.62;//2.5;//2.2; //TODO: Play with this value
 
-	//create empty mask
+	//create empty mask			ROS_FATAL_STREAM(road_histogram_hue_normalized.size()); //%
 	cv::Mat mask(img_hue.rows, img_hue.cols, CV_8UC1);
 
 	//Mask making based on threshold of road/nonRoad
@@ -207,12 +207,13 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV );
 		vector<cv::Mat> frame_hsv_planes;
 		cv::split(frame_hsv, frame_hsv_planes);
-
+/*
 		if(firstRun){
-			//road_mask = bootstrap(frame_hsv_planes[0]);//Guess of road
-			road_mask = bootstrapLoadFromStorage(frame_hsv_planes[0]);//Guess of road from storage!
-			firstRun = false;
+			road_mask = bootstrap(frame_hsv_planes[0]);//Guess of road
+			//road_mask = bootstrapLoadFromStorage(frame_hsv_planes[0]);//Guess of road from storage! #TODO: check
+			firstRun = false; //TODO: not this
 		}
+
 
 
 		road_histogram_hue = calculateHistogramMask(frame_hsv_planes[0],road_histogram_hue,road_mask,hist_bins_hue); //road
@@ -220,17 +221,17 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		train(road_histogram_hue,nonRoad_histogram_hue,road_mask);
 
 		//average noramalize maps
-		road_histogram_hue_normalized = (road_histogram_hue_normalized + road_histogram_hue) / 2;  //% TODO should weight averages to give previous frames more weight
-		nonRoad_histogram_hue_normalized = (nonRoad_histogram_hue_normalized + nonRoad_histogram_hue) / 2; //%
+		road_histogram_hue_normalized += road_histogram_hue/2;  //% TODOl should weight averages to give previous frames more weight
+		nonRoad_histogram_hue_normalized += nonRoad_histogram_hue/2; //%
 
 		//road_mask = predict(frame_hsv_planes[0],road_histogram_hue,nonRoad_histogram_hue);
 		road_mask = predict(frame_hsv_planes[0],road_histogram_hue_normalized,nonRoad_histogram_hue_normalized);
-		//#TODO:train-predict loop?
+		//#TODO:train-predict loop
 
 		//morphologyEx Closing operation. #TODO:Keep trying below
 
-//#TODO: Maybe try bluring the image before?
-	//###TESTING4####################### !!
+//#TODO: There is a gauusian blur commented out at top of that may or may not help...
+	//###TESTING4####################### !! same as  TEST1 except closing last to clear out large black spots in road PROBABLY BEST
 	cv::imwrite("/home/brian/12before1.png",road_mask);
 	auto kernel1 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(4,4));
 	cv::morphologyEx(road_mask,road_mask,cv::MORPH_CLOSE,kernel1);
@@ -244,8 +245,20 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 	cv::morphologyEx(road_mask,road_mask,cv::MORPH_CLOSE,kernel3);
 	cv::imwrite("/home/brian/12close4.png",road_mask);
 	//###############################
+*/
+	const int rectangle_x = 670;
+	const int rectangle_y = 760;
+	const int rectangle_width = 580;
+	const int rectangle_height = 300;
 
+	cv::Mat mask(image_hue.rows, image_hue.cols, CV_8UC1); //mask. Same width/height of input image. Greyscale.
+	cv::Mat histogram_hue;
+	float hue_range[] = { 0, 360 };
+  const float* ranges = { hue_range };
 
+	cv::Mat image_rectangle_hue = image_hue(cv::Rect(rectangle_x,rectangle_y,rectangle_width, rectangle_height));
+	cv::Mat hist = calculateHistogram(image_rectangle_hue,road_histogram_hue,361);
+	cv::calcBackProject(&frame_hsv_planes[0],1,0,hist,mask,&ranges,1 true);
 
 
 		/* THE PLAN:
