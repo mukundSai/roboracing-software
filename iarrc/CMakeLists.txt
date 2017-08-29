@@ -29,6 +29,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS roscpp rospy std_msgs rr_platform
+  DEPENDS system_lib
 )
 
 ###########
@@ -49,5 +50,4 @@ add_subdirectory(src/color_detector_dragrace)
 add_subdirectory(src/color_detector_circuit)
 add_subdirectory(src/steerer_dragrace)
 add_subdirectory(src/steerer_circuit)
-add_subdirectory(src/navigation_controller)
-add_subdirectory(src/finish_line_watcher)
+add_subdirectory(src/speed_controller)

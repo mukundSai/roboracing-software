@@ -21,3 +21,6 @@
 
 # gedit autosave files
 *~
+
+build/*
+devel/*
