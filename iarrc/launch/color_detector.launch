@@ -1,4 +1,6 @@
 <launch>
-	<node name="color_detector" pkg="iarrc" type="color_detector" output="screen">
-	</node>
+    <group ns="camera">
+        <node pkg="nodelet" type="nodelet" name="color_detector" output="screen" args="load iarrc/color_detector camera_nodelet_manager">
+        </node>
+    </group>
 </launch>
