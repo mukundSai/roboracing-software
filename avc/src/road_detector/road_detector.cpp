@@ -72,7 +72,7 @@ cv::Mat calculateHistogramMask(cv::Mat image, cv::Mat histogram, cv::Mat mask, i
 cv::Mat bootstrap(cv::Mat image_hue){
 	float threshold = 0.16;//TODO: Play with this number 0-1
 
-	const int rectangle_x = 670; //TODO: set rectangle more in the middle? or find a better calibration point.
+  const int rectangle_x = 670; //TODO: set rectangle more in the middle? or find a better calibration point.
 	const int rectangle_y = 760;
 	const int rectangle_width = 580;
 	const int rectangle_height = 300;
@@ -81,6 +81,7 @@ cv::Mat bootstrap(cv::Mat image_hue){
 	cv::Mat histogram_hue;
 
 	cv::Mat image_rectangle_hue = image_hue(cv::Rect(rectangle_x,rectangle_y,rectangle_width, rectangle_height));
+cv::imwrite("/home/brian/ouch.png",image_rectangle_hue);
 
 	histogram_hue = calculateHistogram(image_rectangle_hue,road_histogram_hue,hist_bins_hue);
 
@@ -119,6 +120,43 @@ cv::Mat bootstrap(cv::Mat image_hue){
 
 //##### #TODO DO NOT FORGET TO RUN road_detector_histogramTrainer. Test this better.
 cv::Mat bootstrapLoadFromStorage(cv::Mat image_hue){
+	float threshold = 0.12;//0.08; //TODO: Play with this number 0-1
+
+	cv::Mat mask(image_hue.rows, image_hue.cols, CV_8UC1); //mask. Same width/height of input image. Greyscale.
+	cv::Mat histogram_hue;
+
+	//FILE LOADING HISTOGRAM
+	// load file
+	// per http://stackoverflow.com/questions/10277439/opencv-load-save-histogram-data
+	cv::FileStorage fs("road_histogram_hue_normalized.yml", cv::FileStorage::READ);
+	if (!fs.isOpened()) {ROS_FATAL_STREAM("unable to open file storage!");}
+	fs["road_histogram_hue_normalized"] >> histogram_hue;
+	fs.release();
+
+	//Mask making
+	for(auto i = 0; i < image_hue.rows; i++){
+		const unsigned char* row_hue = image_hue.ptr<unsigned char>(i); // HUE
+		unsigned char* out_row = mask.ptr<unsigned char>(i); //output
+
+		for(auto j = 0; j < image_hue.cols; j++){
+			auto hue = row_hue[j]; //HUE of pixel
+			auto histogram_hue_value = histogram_hue.at<float>(hue);
+
+			if(histogram_hue_value >= threshold){
+				out_row[j] = 255; //Road. White.
+			}else{
+				out_row[j] = 0; //nonRoad. Black.
+			}
+
+		}
+
+	}
+
+	return mask;
+}
+
+//##### #TODO DO NOT FORGET TO RUN road_detector_histogramTrainer. Test this better.
+cv::Mat bootstrapLoadFromStorageRoad(cv::Mat image_hue){
 	float threshold = 0.12;//0.08; //TODO: Play with this number 0-1
 
 	cv::Mat mask(image_hue.rows, image_hue.cols, CV_8UC1); //mask. Same width/height of input image. Greyscale.
@@ -225,7 +263,6 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		rectangle(road_mask,cv::Point(0,0),cv::Point(road_mask.cols,road_mask.rows / 3), cv::Scalar(0,0,0),CV_FILLED);
 		rectangle(shadows_mask,cv::Point(0,0),cv::Point(road_mask.cols,road_mask.rows / 3), cv::Scalar(0,0,0),CV_FILLED);
 
-
 		road_histogram_hue = calculateHistogramMask(frame_hsv_planes[0],road_histogram_hue,road_mask,hist_bins_hue); //road
 		nonRoad_histogram_hue = calculateHistogramMask(frame_hsv_planes[0],nonRoad_histogram_hue,~road_mask,hist_bins_hue); //nonRoad
 		train(road_histogram_hue,nonRoad_histogram_hue,road_mask);
@@ -242,8 +279,8 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		nonShadows_histogram_hue_normalized += nonShadows_histogram_hue/2; //%
 
 
-		float road_threshold = 2.7; //TODO: Play with this value
-		float shadows_threshold = 2.2;//1.8; //TODO: Play with this value
+		const float road_threshold = 2.7; //TODO: Play with this value
+		const float shadows_threshold = 2.2;//1.8; //TODO: Play with this value
 		road_mask = predict(frame_hsv_planes[0], road_histogram_hue_normalized, nonRoad_histogram_hue_normalized, road_threshold);
 		shadows_mask = predict(frame_hsv_planes[0], shadows_histogram_hue_normalized, nonShadows_histogram_hue_normalized, shadows_threshold);
 		//#TODO:train-predict loop?
@@ -253,10 +290,10 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		rectangle(shadows_mask,cv::Point(0,0),cv::Point(road_mask.cols,road_mask.rows / 3), cv::Scalar(0,0,0),CV_FILLED);
 
 
-/* ack
+
 		cv::bitwise_or(road_mask, shadows_mask, compiled_mask);
-		cv::imwrite("/home/brian/1Road1.png",road_mask);
-		cv::imwrite("/home/brian/1Shadows1.png",shadows_mask);
+		cv::imwrite("/home/brian/5Road1.png",road_mask);
+		cv::imwrite("/home/brian/5Shadows1.png",shadows_mask);
 
 		//morphologyEx Closing operation. #TODO:Keep trying filtering below
 
@@ -280,48 +317,6 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 	cv::morphologyEx(compiled_mask,compiled_mask,cv::MORPH_CLOSE,kernel4);
 	cv::imwrite("/home/brian/05close.png",compiled_mask);
 	//###############################
-*/
-
-//Testing Morphology TODO ReMOVE CODE BELOW OR MAKE IT REPLACE THE ABOVE CODE #######
-cv::imwrite("/home/brian/10Road1.png",road_mask);
-cv::imwrite("/home/brian/20Shadows1.png",shadows_mask);
-
-auto kernel1 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(4,4));
-cv::morphologyEx(shadows_mask,shadows_mask,cv::MORPH_OPEN,kernel1);
-cv::imwrite("/home/brian/21Shadows1.png",shadows_mask);
-
-
-
-
-cv::bitwise_or(road_mask, shadows_mask, compiled_mask);
-
-//morphologyEx Closing operation. #TODO:Keep trying filtering below
-
-/*//## may be better solution!! Works 8-28-17 just needs a large kernal the end to destroy last black spots
-cv::imwrite("/home/brian/01before.png",compiled_mask);
-auto kernel1 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(4,4));
-cv::morphologyEx(compiled_mask,compiled_mask,cv::MORPH_CLOSE,kernel1);
-cv::imwrite("/home/brian/02close.png",compiled_mask);
-auto kernel2 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(10,10));
-cv::morphologyEx(compiled_mask,compiled_mask,cv::MORPH_OPEN,kernel2);
-cv::imwrite("/home/brian/03open.png",compiled_mask);
-
-//Clear out last random black noise. Warning: Loss of detail
-auto kernel3 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(30,30)); //Larger num = no noise but loose exactness. Try 50.
-cv::morphologyEx(road_mask,road_mask,cv::MORPH_CLOSE,kernel3);
-cv::imwrite("/home/brian/04close.png",compiled_mask);
-
-
-//########May remove this or change it or just merge with above.
-auto kernel4 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(60,60)); //Larger num = no noise but loose exactness. Try 50.
-cv::morphologyEx(compiled_mask,compiled_mask,cv::MORPH_CLOSE,kernel4);
-cv::imwrite("/home/brian/05close.png",compiled_mask);
-//###############################
-
-*/
-
-//############## end test ####################33
-
 
 
 		/* THE PLAN:
@@ -334,7 +329,6 @@ cv::imwrite("/home/brian/05close.png",compiled_mask);
 		(repeat at -> x times)
 		filter blur (something that checks if pixels around it are white, then makes it white or black based on that)
 		*/
-
 
     //publish image
     sensor_msgs::Image outmsg;

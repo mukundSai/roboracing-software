@@ -81,14 +81,14 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		road_histogram_hue = createHueHistogram(frame_hsv_planes[0]);
 
 		//average normalize maps
-		road_histogram_hue_normalized = (road_histogram_hue_normalized + road_histogram_hue)/2;  //% TODOl should weight averages to give previous frames more weight
+		road_histogram_hue_normalized = (road_histogram_hue_normalized + road_histogram_hue) / 2;  //% TODOl should weight averages to give previous frames more weight
 
 
 		//store histogram
 		//per http://stackoverflow.com/questions/10277439/opencv-load-save-histogram-data
-		cv::FileStorage fs("road_histogram_hue_normalized.yml", cv::FileStorage::WRITE);
+		cv::FileStorage fs("histogram_hue_normalized.yml", cv::FileStorage::WRITE);
 		if (!fs.isOpened()) {ROS_FATAL_STREAM("unable to open file storage!"); return;}
-		fs << "road_histogram_hue_normalized" << road_histogram_hue_normalized;
+		fs << "histogram_hue_normalized" << road_histogram_hue_normalized;
 		fs.release();
 
 
