@@ -81,7 +81,6 @@ cv::Mat bootstrap(cv::Mat image_hue){
 	cv::Mat histogram_hue;
 
 	cv::Mat image_rectangle_hue = image_hue(cv::Rect(rectangle_x,rectangle_y,rectangle_width, rectangle_height));
-cv::imwrite("/home/brian/ouch.png",image_rectangle_hue);
 
 	histogram_hue = calculateHistogram(image_rectangle_hue,road_histogram_hue,hist_bins_hue);
 
@@ -118,9 +117,8 @@ cv::imwrite("/home/brian/ouch.png",image_rectangle_hue);
 	return mask;
 }
 
-//##### #TODO DO NOT FORGET TO RUN road_detector_histogramTrainer. Test this better.
-cv::Mat bootstrapLoadFromStorage(cv::Mat image_hue){
-	float threshold = 0.12;//0.08; //TODO: Play with this number 0-1
+//##### #TODO DO NOT FORGET TO RUN road_detector_histogramTrainer.
+cv::Mat bootstrapLoadFromStorage(cv::Mat image_hue, float threshold, string fileName){
 
 	cv::Mat mask(image_hue.rows, image_hue.cols, CV_8UC1); //mask. Same width/height of input image. Greyscale.
 	cv::Mat histogram_hue;
@@ -128,9 +126,9 @@ cv::Mat bootstrapLoadFromStorage(cv::Mat image_hue){
 	//FILE LOADING HISTOGRAM
 	// load file
 	// per http://stackoverflow.com/questions/10277439/opencv-load-save-histogram-data
-	cv::FileStorage fs("road_histogram_hue_normalized.yml", cv::FileStorage::READ);
+	cv::FileStorage fs(fileName + ".yml", cv::FileStorage::READ);
 	if (!fs.isOpened()) {ROS_FATAL_STREAM("unable to open file storage!");}
-	fs["road_histogram_hue_normalized"] >> histogram_hue;
+	fs[fileName] >> histogram_hue;
 	fs.release();
 
 	//Mask making
@@ -155,44 +153,6 @@ cv::Mat bootstrapLoadFromStorage(cv::Mat image_hue){
 	return mask;
 }
 
-//##### #TODO DO NOT FORGET TO RUN road_detector_histogramTrainer. Test this better.
-cv::Mat bootstrapLoadFromStorageRoad(cv::Mat image_hue){
-	float threshold = 0.12;//0.08; //TODO: Play with this number 0-1
-
-	cv::Mat mask(image_hue.rows, image_hue.cols, CV_8UC1); //mask. Same width/height of input image. Greyscale.
-	cv::Mat histogram_hue;
-
-	//FILE LOADING HISTOGRAM
-	// load file
-	// per http://stackoverflow.com/questions/10277439/opencv-load-save-histogram-data
-	cv::FileStorage fs("road_histogram_hue_normalized.yml", cv::FileStorage::READ);
-	if (!fs.isOpened()) {ROS_FATAL_STREAM("unable to open file storage!");}
-	fs["road_histogram_hue_normalized"] >> histogram_hue;
-	fs.release();
-
-	//Mask making
-	for(auto i = 0; i < image_hue.rows; i++){
-		const unsigned char* row_hue = image_hue.ptr<unsigned char>(i); // HUE
-		unsigned char* out_row = mask.ptr<unsigned char>(i); //output
-
-		for(auto j = 0; j < image_hue.cols; j++){
-			auto hue = row_hue[j]; //HUE of pixel
-			auto histogram_hue_value = histogram_hue.at<float>(hue);
-
-			if(histogram_hue_value >= threshold){
-				out_row[j] = 255; //Road. White.
-			}else{
-				out_row[j] = 0; //nonRoad. Black.
-			}
-
-		}
-
-	}
-
-	return mask;
-}
-
-//#####
 
 void train(cv::Mat &hist_hue_road,cv::Mat &hist_hue_nonRoad, cv::Mat mask){
 	//Normalize (sums to 1). Basically gives percentage of pixels of that color (0-1).
@@ -252,10 +212,10 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		cv::split(frame_hsv, frame_hsv_planes);
 
 		if(firstRun){
-			//road_mask = bootstrap(frame_hsv_planes[0]);//Guess of road
-			road_mask = bootstrapLoadFromStorage(frame_hsv_planes[0]);//Guess of road from storage! #TODO: check
-//#TODO: 			shadows_mask = bootstrapLoadFromStorageShadows...
-			shadows_mask = bootstrap(frame_hsv_planes[0]);
+			//Guess of road from stored histogram!
+			road_mask = bootstrapLoadFromStorage(frame_hsv_planes[0],0.12,"road_histogram_hue_normalized");//#TODO: check
+			//shadows_mask = bootstrapLoadFromStorage(frame_hsv_planes[0],0.08,"shadows_histogram_hue_normalized");//#TODO: mess with threshold
+			shadows_mask = bootstrap(frame_hsv_planes[0]); //This works with the broken version of averaging values.
 			firstRun = false;
 		}
 
@@ -271,12 +231,12 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		nonShadows_histogram_hue = calculateHistogramMask(frame_hsv_planes[0],nonShadows_histogram_hue,~shadows_mask,hist_bins_hue); //nonShadows
 		train(shadows_histogram_hue,nonShadows_histogram_hue,shadows_mask);
 
-		//average normalize maps
-		road_histogram_hue_normalized += road_histogram_hue/2;  //% TODO should weight averages to give previous frames more weight
-		nonRoad_histogram_hue_normalized += nonRoad_histogram_hue/2; //%
+		//average normalize maps #TODO: THIS IS NOT AVERAGING. NEED TO FIX THAT THEN CHANGE THE thresholds!!!
+		road_histogram_hue_normalized += road_histogram_hue / 2;  //% TODO should weight averages to give previous frames more weight
+		nonRoad_histogram_hue_normalized += nonRoad_histogram_hue / 2; //%
 
-		shadows_histogram_hue_normalized += shadows_histogram_hue/2;  //% TODO should weight averages to give previous frames more weight
-		nonShadows_histogram_hue_normalized += nonShadows_histogram_hue/2; //%
+		shadows_histogram_hue_normalized += shadows_histogram_hue / 2;  //% TODO should weight averages to give previous frames more weight
+		nonShadows_histogram_hue_normalized += nonShadows_histogram_hue / 2; //%
 
 
 		const float road_threshold = 2.7; //TODO: Play with this value
