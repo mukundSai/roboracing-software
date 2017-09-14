@@ -226,6 +226,7 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		cv::Mat frame_hsv;
 		cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV );
 		vector<cv::Mat> frame_hsv_planes;
+
 		cv::split(frame_hsv, frame_hsv_planes);
 
 		if(firstRun){
@@ -257,7 +258,7 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		nonShadows_histogram_hue_normalized = (nonShadows_histogram_hue_normalized * 0.95 + nonShadows_histogram_hue * 0.05);// / 2; //%
 
 		const float road_threshold = 2.7;//2.0; //TODO: Play with this value
-		const float shadows_threshold = 3.1;//3.3; //TODO: Play with this value
+		const float shadows_threshold = 1.9;//3.3; //TODO: Play with this value
 		road_mask = predict(frame_hsv_planes[0], road_histogram_hue_normalized, nonRoad_histogram_hue_normalized, road_threshold);
 		shadows_mask = predict(frame_hsv_planes[0], shadows_histogram_hue_normalized, nonShadows_histogram_hue_normalized, shadows_threshold);
 		//#TODO:train-predict loop?
@@ -269,13 +270,13 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 
 		cv::imwrite("/home/brian/50Road1.png",road_mask);
 		cv::imwrite("/home/brian/51Shadows1.png",shadows_mask);
-
+/*
 		auto kernel = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(4,4));
 		cv::morphologyEx(shadows_mask,shadows_mask,cv::MORPH_CLOSE,kernel);
 		cv::imwrite("/home/brian/52Shadows2_op.png",shadows_mask);
 		cv::morphologyEx(road_mask,road_mask,cv::MORPH_CLOSE,kernel);
 		cv::imwrite("/home/brian/51Road_op.png",road_mask);
-
+*/
 		cv::bitwise_or(road_mask, shadows_mask, compiled_mask);
 		//morphologyEx Closing operation. #TODO:Keep trying filtering below
 
