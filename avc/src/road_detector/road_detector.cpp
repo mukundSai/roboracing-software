@@ -13,7 +13,9 @@ ros::Publisher pub;
 /*
 	This Histogram Road Detection Algorithmn is based on:
 	http://www.morethantechnical.com/2013/03/05/skin-detection-with-probability-maps-and-elliptical-boundaries-opencv-wcode/
-	http://www.cse.unsw.edu.au/~icml2002/workshops/MLCV02/MLCV02-Morales.pdf
+	http://www.cse.unsw.edu.au/~icml2002/workshops/MLCV02/MLCV02-Moral:11311/
+
+es.pdf
 	http://www.sciencedirect.com/science/article/pii/S0031320306002767
 
 	Be careful, a bad bootstrap will cause it to converge around non road.
@@ -253,11 +255,12 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		road_histogram_hue_normalized = (road_histogram_hue_normalized * 0.95 + road_histogram_hue * 0.05); /// 2;  //% TODO should weight averages to give previous frames more weight
 		nonRoad_histogram_hue_normalized = (nonRoad_histogram_hue_normalized * 0.95 + nonRoad_histogram_hue * 0.05);// / 2; //%
 
-		shadows_histogram_hue_normalized = (shadows_histogram_hue_normalized * 0.95 + shadows_histogram_hue * 0.05);// / 2;  //% TODO should weight averages to give previous frames more weight
-		nonShadows_histogram_hue_normalized = (nonShadows_histogram_hue_normalized * 0.95 + nonShadows_histogram_hue * 0.05);// / 2; //%
+		shadows_histogram_hue_normalized = (shadows_histogram_hue_normalized * 0.99 + shadows_histogram_hue * 0.01);// / 2;  //% TODO should weight averages to give previous frames more weight
+		nonShadows_histogram_hue_normalized = (nonShadows_histogram_hue_normalized * 0.99 + nonShadows_histogram_hue * 0.01);// / 2; //%
 
-		const float road_threshold = 2.7;//2.0; //TODO: Play with this value
-		const float shadows_threshold = 3.1;//3.3; //TODO: Play with this value
+
+		float road_threshold = 2.7; //TODO: Play with this value
+		float shadows_threshold = 2.1; //1.9; //TODO: Play with this value
 		road_mask = predict(frame_hsv_planes[0], road_histogram_hue_normalized, nonRoad_histogram_hue_normalized, road_threshold);
 		shadows_mask = predict(frame_hsv_planes[0], shadows_histogram_hue_normalized, nonShadows_histogram_hue_normalized, shadows_threshold);
 		//#TODO:train-predict loop?
@@ -266,7 +269,50 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 		rectangle(road_mask,cv::Point(0,0),cv::Point(road_mask.cols,road_mask.rows / 3), cv::Scalar(0,0,0),CV_FILLED);
 		rectangle(shadows_mask,cv::Point(0,0),cv::Point(road_mask.cols,road_mask.rows / 3), cv::Scalar(0,0,0),CV_FILLED);
 
+//############## Do the morphologyEx seperately to allow the Algorithmn to learn from more accurate masks. May or may not help.
 
+		cv::imwrite("/home/brian/50Road1.png",road_mask);
+		cv::imwrite("/home/brian/51Shadows1.png",shadows_mask);
+
+		auto kernel = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(4,4));
+		cv::morphologyEx(shadows_mask,shadows_mask,cv::MORPH_CLOSE,kernel);
+		cv::imwrite("/home/brian/52Shadows2_op.png",shadows_mask);
+		cv::morphologyEx(road_mask,road_mask,cv::MORPH_CLOSE,kernel);
+		cv::imwrite("/home/brian/51Road_op.png",road_mask);
+
+		cv::imwrite("/home/brian/10before.png",road_mask);
+		auto kernel1 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(4,4));
+		cv::morphologyEx(road_mask,road_mask,cv::MORPH_CLOSE,kernel1);
+		cv::imwrite("/home/brian/11close.png",road_mask);
+		auto kernel2 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(10,10));
+		cv::morphologyEx(road_mask,road_mask,cv::MORPH_OPEN,kernel2);
+		cv::imwrite("/home/brian/12open.png",road_mask);
+		//Clear out last random black noise. Warning: Loss of detail
+		auto kernel3 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(30,30)); //Larger num = no noise but loose exactness. Try 50.
+		cv::morphologyEx(road_mask,road_mask,cv::MORPH_CLOSE,kernel3);
+
+//		cv::imwrite("/home/brian/10before.png",compiled_mask);
+		//auto kernel1 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(4,4));
+		cv::morphologyEx(shadows_mask,shadows_mask,cv::MORPH_CLOSE,kernel1);
+//		cv::imwrite("/home/brian/11close.png",compiled_mask);
+		//auto kernel2 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(10,10));
+		cv::morphologyEx(shadows_mask,shadows_mask,cv::MORPH_OPEN,kernel2);
+//		cv::imwrite("/home/brian/12open.png",compiled_mask);
+
+		cv::bitwise_or(road_mask, shadows_mask, compiled_mask);
+		//morphologyEx Closing operation. #TODO:Keep trying filtering below
+
+
+
+		//Clear out last random black noise. Warning: Loss of detail
+		auto kernel4 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(50,50)); //Larger num = no noise but loose  detail
+		cv::morphologyEx(compiled_mask,compiled_mask,cv::MORPH_CLOSE,kernel4);
+		cv::imwrite("/home/brian/13close.png",compiled_mask);
+//############3
+
+
+/*
+//Do morphologyEx combined to be faster.
 		cv::imwrite("/home/brian/50Road1.png",road_mask);
 		cv::imwrite("/home/brian/51Shadows1.png",shadows_mask);
 
@@ -290,7 +336,7 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 
 	//Clear out last random black noise. Warning: Loss of detail
 	auto kernel3 = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(30,30)); //Larger num = no noise but loose exactness. Try 50.
-	cv::morphologyEx(road_mask,road_mask,cv::MORPH_CLOSE,kernel3);
+	cv::morphologyEx(compiled_mask,compiled_mask,cv::MORPH_CLOSE,kernel3);
 	cv::imwrite("/home/brian/13close.png",compiled_mask);
 
 
@@ -299,7 +345,7 @@ void img_callback(const sensor_msgs::ImageConstPtr& msg) {
 //	cv::morphologyEx(compiled_mask,compiled_mask,cv::MORPH_CLOSE,kernel4);
 //	cv::imwrite("/home/brian/14close.png",compiled_mask);
 	//###############################
-
+*/
 
 		/* THE PLAN:
 		bootstrap mask (guess from rectangle) (or guess from histogram from file)
